@@ -17,15 +17,15 @@ import android.widget.ImageView;
 
 public class RoundShowImage extends ImageView {
     private int mLeftOffset = 0;
-    private boolean mLeftOffsetCustom = false;
     private int mTopOffset = 0;
-    private boolean mTopOffsetCustom = false;
     private int mRadius = 1, mMaxRadius = 0;
     private boolean mIsSetMaxRadius = false;
     private int mRate;
     private int mMeasuredWidth, mMeasuredHeight, mOldMeasuredWidth, mOldMeasuredHeight;
     private boolean mIsSizeChanged = false;
     private int mSlashLen = 0;
+    private boolean mStartShow = false;
+    private int mOriginalX, mOriginalY;
 
     public RoundShowImage(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
@@ -53,21 +53,20 @@ public class RoundShowImage extends ImageView {
 
         mOldMeasuredHeight = mMeasuredHeight;
         mOldMeasuredWidth = mMeasuredWidth;
-
-        if(!mIsSetMaxRadius){
-            mMaxRadius = (int)getSlashLen();
-        }
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
 
-        if(!mLeftOffsetCustom){
-            mLeftOffset = mMeasuredWidth/2 - mRadius;
+        if(!mStartShow){
+            canvas.drawARGB(0, 0, 0, 0);
+            return;
         }
 
-        if(!mTopOffsetCustom){
-            mTopOffset = mMeasuredHeight/2 - mRadius;
+        mOriginalX = mMeasuredWidth/2 + mLeftOffset;
+        mOriginalY = mMeasuredHeight/2 + mTopOffset;
+        if(!mIsSetMaxRadius){
+            mMaxRadius = (int)getSlashLen();
         }
 
         Bitmap circleBitmap = Bitmap.createBitmap(mRadius * 2, mRadius * 2, Bitmap.Config.ARGB_8888);
@@ -90,18 +89,20 @@ public class RoundShowImage extends ImageView {
                         Canvas.FULL_COLOR_LAYER_SAVE_FLAG |
                         Canvas.CLIP_TO_LAYER_SAVE_FLAG);
 
-        canvas.drawBitmap(circleBitmap, mLeftOffset, mTopOffset, mOriginalPaint);
+        canvas.drawBitmap(circleBitmap, mOriginalX - mRadius, mOriginalY - mRadius, mOriginalPaint);
         Xfermode oldMode = mOriginalPaint.getXfermode();
         mOriginalPaint.setColor(getContext().getResources().getColor(android.R.color.holo_green_light));
         mOriginalPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+
+        //draw the image
         super.onDraw(canvas);
         mOriginalPaint.setXfermode(oldMode);
         canvas.restoreToCount(saveCount);
 
         Log.i(Debug.DEBUG_TAG, "on RoundShowImage onDraw mRadius=" + mRadius + ", mRate=" + mRate);
         if(mRadius < mMaxRadius){
-            ViewCompat.postInvalidateOnAnimation(this);
             mRadius += mRate;
+            ViewCompat.postInvalidateOnAnimation(this);
         }
     }
 
@@ -110,7 +111,7 @@ public class RoundShowImage extends ImageView {
             return;
         }
         this.mLeftOffset = offset;
-        invalidate();
+        ViewCompat.postInvalidateOnAnimation(this);
     }
 
     public void setTopOffset(int offset){
@@ -118,7 +119,7 @@ public class RoundShowImage extends ImageView {
             return;
         }
         this.mTopOffset = offset;
-        invalidate();
+        ViewCompat.postInvalidateOnAnimation(this);;
     }
 
     public void setMaxRadius(int radius){
@@ -143,18 +144,39 @@ public class RoundShowImage extends ImageView {
             return mSlashLen;
         }
 
-        float halfWidth = getMeasuredWidth()/2;
-        float halfHeight = getMeasuredHeight()/2;
+        int deltaX, deltaY;
+        deltaX = deltaY = 0;
+        int halfMeasuredW = mMeasuredWidth/2;
+        int halfMeasuredH = mMeasuredHeight/2;
+        if(mOriginalX < halfMeasuredW && mOriginalY < halfMeasuredH){
+            deltaX = mMeasuredWidth - mOriginalX;
+            deltaY = mMeasuredHeight - mOriginalY;
+        }else if(mOriginalX < halfMeasuredW && mOriginalY >= halfMeasuredH){
+            deltaX = mMeasuredWidth - mOriginalX;
+            deltaY = mOriginalY;
+        }else if(mOriginalX >= halfMeasuredW && mOriginalY < halfMeasuredH){
+            deltaX = mOriginalX;
+            deltaY = mMeasuredHeight - mOriginalY;
+        }else if(mOriginalX >= halfMeasuredW && mOriginalY >= halfMeasuredH){
+            deltaX = mOriginalX;
+            deltaY = mOriginalY;
+        }
 
-        mSlashLen = (int)Math.sqrt(Math.pow(halfWidth, 2) + Math.pow(halfHeight, 2));
+        mSlashLen = (int)Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
         return mSlashLen;
     }
 
-    public void setLeftOffsetCustom(boolean custom){
-        this.mLeftOffsetCustom = custom;
+    public void startShow(){
+        this.mStartShow = true;
+        ViewCompat.postInvalidateOnAnimation(this);
     }
 
-    public void setTopOffsetCustom(boolean custom){
-        this.mTopOffsetCustom = custom;
+    public boolean isStartShow(){
+        return mStartShow;
+    }
+
+    public void stopShow(){
+        this.mStartShow = false;
+        ViewCompat.postInvalidateOnAnimation(this);
     }
 }
